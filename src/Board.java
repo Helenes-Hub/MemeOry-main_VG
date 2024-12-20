@@ -1,7 +1,11 @@
 import javax.swing.*;
+import java.util.List;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 
 public class Board extends JFrame implements ActionListener {
 //.idea/vcs.xml
@@ -38,17 +42,26 @@ public class Board extends JFrame implements ActionListener {
     private final JTextArea rulesTArea = new JTextArea(20,40);
     private final JButton backButton = new JButton("Back");
     private final JTextArea aboutTArea = new JTextArea(20, 40);
+    private final JPanel viewHighScorePanel=new JPanel();
+    private final JTextArea [] highScoreAreas=new JTextArea[2];
 
+    private final Path easy = Paths.get("src/Score/Easy.txt");
+    private final Path hard = Paths.get("src/Score/Hard.txt");
     private final JLabel thankYouLabel = new JLabel("Thanks for playing!");
-    //private final JLabel scoreLabel = new JLabel("Score: " + player.getScore());
+    private final JLabel movesLabel = new JLabel("Moves: " + player.getMoves(), SwingConstants.CENTER);
     private final JButton playAgainButton = new JButton("Play Again");
     private final JButton exitButton = new JButton("Exit game");
+    private int width=1000;
+    private int height=800;
+    int buttonWidth=200;
+    ScoreReader scoreReader = ScoreReader.getInstance();
+
 
     public Board(){
         setTitle("MemeOry");
         setLayout(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(700, 950);
+        setSize(width, height);
         setResizable(false);
         setLocationRelativeTo(null);
         setVisible(true);
@@ -84,6 +97,21 @@ public class Board extends JFrame implements ActionListener {
             setBoard(difficulty, theme);
             revalidate();
             repaint();});
+
+        viewHighScoreButton.addActionListener(l -> {
+            remove(startPanel);
+            displayHighScore();
+            revalidate();
+            repaint();
+
+        });
+
+        backButton.addActionListener(l -> {
+            remove(aboutPanel);
+            displayStartPanel();
+            revalidate();
+            repaint();
+        });
     }
 
     public enum DifficultyLevel {
@@ -111,22 +139,22 @@ public class Board extends JFrame implements ActionListener {
     }
 
     public void displayStartPanel() {
-        startPanel.setBounds(0, 0, 700, 950);
+        startPanel.setBounds(0, 0, width, height);
         startPanel.setLayout(null);
         startPanel.setBackground(new Color(255, 222, 222));
         add(startPanel);
-        startLabel.setBounds(220, 100, 400, 100);
+        startLabel.setBounds((width-250)/2, 100, 400, 100);
         startPanel.add(startLabel);
         startLabel.setFont(new Font("Magneto", Font.BOLD, 50 ));
-        startButton.setBounds(250, 250, 200, 100);
+        startButton.setBounds((width-buttonWidth)/2, 250, 200, 100);
         startButton.setBackground(new Color(255, 240, 240));
-        //viewHighScoreButton.setBounds(250, 375, 200, 100);
-        aboutButton.setBounds(250, 375, 200, 100);
+        viewHighScoreButton.setBounds((width-buttonWidth)/2, 375, 200, 100);
+        aboutButton.setBounds((width-buttonWidth)/2, 625, 200, 100);
         aboutButton.setBackground(new Color(255, 240, 240));
-        rulesButton.setBounds(250, 500, 200, 100);
+        rulesButton.setBounds((width-buttonWidth)/2, 500, 200, 100);
         rulesButton.setBackground(new Color(255, 240, 240));
         startPanel.add(startButton);
-        //startPanel.add(viewHighScoreButton);
+        startPanel.add(viewHighScoreButton);
         startPanel.add(aboutButton);
         startPanel.add(rulesButton);
         try {
@@ -135,7 +163,7 @@ public class Board extends JFrame implements ActionListener {
             ImageIcon scaledSanta = new ImageIcon(scaledImage);
 
             JLabel santaLabel = new JLabel(scaledSanta);
-            santaLabel.setBounds(290, 190, 80, 80);
+            santaLabel.setBounds(width/2, 190, 80, 80);
             startPanel.add(santaLabel);
 
         } catch (Exception e) {
@@ -149,9 +177,9 @@ public class Board extends JFrame implements ActionListener {
         chooseDifficultyPanel.setLayout(null);
         chooseDifficultyPanel.setBackground(new Color(255, 222, 222));
         add(chooseDifficultyPanel);
-        levelEasy.setBounds(250, 200, 200, 100);
+        levelEasy.setBounds((width-buttonWidth)/2, 200, 200, 100);
         levelEasy.setBackground(new Color(255, 240, 240));
-        levelHard.setBounds(250, 350, 200, 100);
+        levelHard.setBounds((width-buttonWidth)/2, 350, 200, 100);
         levelHard.setBackground(new Color(255, 240, 240));
         chooseDifficultyPanel.add(levelEasy); chooseDifficultyPanel.add(levelHard);
 
@@ -173,9 +201,9 @@ public class Board extends JFrame implements ActionListener {
         chooseThemePanel.setLayout(null);
         chooseThemePanel.setBackground(new Color(255, 222, 222));
         add(chooseThemePanel);
-        themeAnimals.setBounds(250, 200, 200, 100);
+        themeAnimals.setBounds((width-buttonWidth)/2, 200, 200, 100);
         themeAnimals.setBackground(new Color(255, 240, 240));
-        themeCharacters.setBounds(250, 350, 200, 100);
+        themeCharacters.setBounds((width-buttonWidth)/2, 350, 200, 100);
         themeCharacters.setBackground(new Color(255, 240, 240));
         chooseThemePanel.add(themeAnimals); chooseThemePanel.add(themeCharacters);
     }
@@ -188,6 +216,7 @@ public class Board extends JFrame implements ActionListener {
         }
         JButton button = (JButton) e.getSource();
         Card clickedCard = (Card) button.getClientProperty("card");
+        updateMoves();
         if (clickedCard == cardToCheck1 || clickedCard == cardToCheck2 || (clickedCard.getMatched())) {
             return;
         }
@@ -201,10 +230,11 @@ public class Board extends JFrame implements ActionListener {
     }
 
     public void setBoard(DifficultyLevel difficulty, CardTheme theme) {
+        player.nullMoves();
         boardPanel.removeAll();
         cards = factory.getMemoryCards(difficulty.value, theme.theme);
 
-        boardPanel.setBounds(0, 0, 700, 950);
+        boardPanel.setBounds(0, 0, width, height);
         boardPanel.setLayout(new BorderLayout());
         boardPanel.setBackground(new Color(255, 222, 222));
 
@@ -224,9 +254,12 @@ public class Board extends JFrame implements ActionListener {
             cardsPanel.add(button);
             button.addActionListener(this);
         }
+        movesLabel.setPreferredSize(new Dimension(width, 50));
+        boardPanel.add(movesLabel, BorderLayout.NORTH);
 
         enableButtons(true);
         boardPanel.add(cardsPanel, BorderLayout.CENTER);
+
         add(boardPanel);
     }
 
@@ -235,7 +268,7 @@ public class Board extends JFrame implements ActionListener {
         rulesPanel.setLayout(null);
         rulesPanel.setBackground(new Color(255, 222, 222));
         add(rulesPanel);
-        rulesTArea.setBounds(150, 80, 400, 400);
+        rulesTArea.setBounds((width-400)/2, 80, 400, 400);
         rulesTArea.setText("Memory Rules\n\nA classic memory card game where you test your memory by matching pairs of cards. A move" +
                 " consists of turning over 2 cards. If the cards match, you get to keep the cards and get a point added to your score. " +
                 "If the cards do not match, the cards are turned over again. You must try to remember where you have seen cards, so you" +
@@ -246,7 +279,7 @@ public class Board extends JFrame implements ActionListener {
         rulesTArea.setLineWrap(true);
         rulesTArea.setWrapStyleWord(true);
         rulesPanel.add(rulesTArea);
-        backButton.setBounds(250, 500, 200, 100);
+        backButton.setBounds((width-buttonWidth)/2, 500, 200, 100);
         backButton.setBackground(new Color(255, 240, 240));
         rulesPanel.add(backButton);
 
@@ -258,12 +291,19 @@ public class Board extends JFrame implements ActionListener {
         });
     }
 
+    public void updateMoves(){
+        player.incrementMoves();
+        movesLabel.setText("Moves: "+player.getMoves());
+
+
+    }
+
     public void displayAboutPanel() {
         aboutPanel.setBounds(0, 0, 700, 700);
         aboutPanel.setLayout(null);
         aboutPanel.setBackground(new Color(255, 222, 222));
         add(aboutPanel);
-        aboutTArea.setBounds(150, 80, 400, 400);
+        aboutTArea.setBounds((width-400)/2, 80, 400, 400);
         aboutTArea.setText("\nMemeOry Game v.1.0\n\nDeveloped by: Christer, Hannes, Helene, Jennifer & Paulina\n\nRelease date: December 2024\n\nBuilt with: Java and love");
         aboutTArea.setBackground(new Color(255, 190, 190));
         aboutTArea.setFont(new Font("Arial", Font.BOLD, 24));
@@ -271,16 +311,11 @@ public class Board extends JFrame implements ActionListener {
         aboutTArea.setLineWrap(true);
         aboutTArea.setWrapStyleWord(true);
         aboutPanel.add(aboutTArea);
-        backButton.setBounds(250, 500, 200, 100);
+        backButton.setBounds((width-buttonWidth)/2, 500, 200, 100);
         backButton.setBackground(new Color(255, 240, 240));
         aboutPanel.add(backButton);
 
-        backButton.addActionListener(l -> {
-            remove(aboutPanel);
-            displayStartPanel();
-            revalidate();
-            repaint();
-        });
+
     }
     private void checkIfMatched (Card card1, Card card2) {
         enableButtons(false);
@@ -316,9 +351,10 @@ public class Board extends JFrame implements ActionListener {
             }
         }
         if (gameFinished) {
+            player.compareHighscore(difficulty.difficulty);
             Timer timer = new Timer(2000, evt -> {
                 remove(boardPanel);
-                displayGameOverPanel(player.getScore()); // or whatever score calculation you have
+                displayGameOverPanel(player.getMoves()); // or whatever score calculation you have
                 revalidate();
                 repaint();
 
@@ -339,38 +375,85 @@ public class Board extends JFrame implements ActionListener {
         }
     }
 
+    private void displayHighScore(){
+        viewHighScorePanel.removeAll();
+        for(int i=0; i<highScoreAreas.length;i++){
+            highScoreAreas[i]=new JTextArea();
+
+            highScoreAreas[i].setBackground(new Color(255, 190*i+10, 190));
+            highScoreAreas[i].setFont(new Font("Arial", Font.BOLD, 20));
+            highScoreAreas[i].setEditable(false);
+            highScoreAreas[i].setLineWrap(true);
+            highScoreAreas[i].setWrapStyleWord(true);
+            viewHighScorePanel.add(highScoreAreas[i]);
+
+        }
+        List<String> scores=new ArrayList<>();
+        scores=scoreReader.read(easy);
+        System.out.println(scores.toString());
+        highScoreAreas[0].setText("\nHighscore easy: \n");
+
+        for (String score : scores) {
+            String[] parts = score.split(",");
+            highScoreAreas[0].append("\n" + parts[1]+" Moves by User: "+ parts[0]);
+        }
+        scores=scoreReader.read(hard);
+        highScoreAreas[1].setText("\nHighscore hard: \n");
+        for (String score : scores) {
+            String[] parts = score.split(",");
+            highScoreAreas[1].append("\n" + parts[1]+" Moves by User: "+ parts[0]);
+        }
+        highScoreAreas[0].revalidate();
+        highScoreAreas[0].repaint();
+        highScoreAreas[1].revalidate();
+        highScoreAreas[1].repaint();
+        viewHighScorePanel.setBounds(0, 0, width, 700);
+        viewHighScorePanel.setLayout(null);
+        viewHighScorePanel.setBackground(new Color(255, 222, 222));
+        highScoreAreas[0].setBounds(0, 0, width/2, 500);
+        highScoreAreas[1].setBounds(500, 0, width/2, 500);
+        viewHighScorePanel.add(highScoreAreas[0]);
+        viewHighScorePanel.add(highScoreAreas[1]);
+        backButton.setBounds((width-buttonWidth)/2, 500, 200, 100);
+        viewHighScorePanel.add(backButton);
+        backButton.setBackground(new Color(255, 240, 240));
+        //viewHighScorePanel.add(backButton);
+        this.add(viewHighScorePanel);
+        revalidate();
+        repaint();
+        backButton.addActionListener(l -> {
+            remove(viewHighScorePanel);
+            displayStartPanel();
+            revalidate();
+            repaint();
+        });
+    };
+
     public void displayGameOverPanel(int score) {
         for (Card card : cards) {
             boardPanel.remove(card.getButton());
             boardPanel.revalidate();
             }
-        // Panel setup
+
         gameOverPanel.setBounds(0, 0, 700, 950);
         gameOverPanel.setLayout(null);
         gameOverPanel.setBackground(new Color(255, 222, 222));
         add(gameOverPanel);
 
-        // Position components - matching style from displayStartPanel()
-        thankYouLabel.setBounds(220, 100, 400, 200);
+        thankYouLabel.setBounds((width-250)/2, 100, 400, 200);
         thankYouLabel.setFont(new Font("Magneto", Font.PLAIN, 25));
-        //scoreLabel.setBounds(315, 100, 400, 350);
 
-        // Buttons - matching button positioning style
-        playAgainButton.setBounds(250, 250, 200, 100);// Same position as startButton
+        playAgainButton.setBounds((width-buttonWidth)/2, 250, 200, 100);// Same position as startButton
         playAgainButton.setBackground(new Color(255, 240, 240));
-        exitButton.setBounds(250, 375, 200, 100);       // Same position as rulesButton
+        exitButton.setBounds((width-buttonWidth)/2, 375, 200, 100);       // Same position as rulesButton
         exitButton.setBackground(new Color(255, 240, 240));
 
-        // Add all components to panel
+
         gameOverPanel.add(thankYouLabel);
-        //gameOverPanel.add(scoreLabel);
+
         gameOverPanel.add(playAgainButton);
         gameOverPanel.add(exitButton);
 
-        // Update score text
-        //scoreLabel.setText("Din poäng: " + score);
-
-        // Button actions
         playAgainButton.addActionListener(l -> {
             remove(gameOverPanel);
             displayStartPanel();
